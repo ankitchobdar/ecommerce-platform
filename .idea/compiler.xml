@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Gradle Imported" enabled="true">
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.46/a5cfe99fdf320e84955ef653f2ce1bf789d11385/lombok-1.18.46.jar" />
+        </processorPath>
+      </profile>
+      <profile name="Annotation profile for spring-boot-multi-module" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
+        </processorPath>
+        <module name="payment-service" />
+        <module name="address-service" />
+        <module name="inventory-service" />
+        <module name="order-service" />
+        <module name="common" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="order-service.main" target="26" />
+      <module name="order-service.test" target="26" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="address-service" options="-parameters" />
+      <module name="common" options="-parameters" />
+      <module name="inventory-service" options="-parameters" />
+      <module name="order-service" options="-parameters" />
+      <module name="order-service.main" options="-parameters" />
+      <module name="order-service.test" options="-parameters" />
+      <module name="payment-service" options="-parameters" />
+    </option>
+  </component>
+</project>
