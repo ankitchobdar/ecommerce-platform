@@ -17,7 +17,6 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
         </processorPath>
         <module name="orchestrator" />
-        <module name="address-service" />
         <module name="inventory-service" />
         <module name="order-service" />
         <module name="payment-service" />
@@ -25,6 +24,7 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="address-service" target="26" />
       <module name="order-service.main" target="26" />
       <module name="order-service.test" target="26" />
     </bytecodeTargetLevel>

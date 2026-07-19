@@ -2,7 +2,7 @@ package org.project.orderservice.service;
 
 import org.project.common.order.Order;
 import org.project.common.order.OrderDTO;
-import org.project.common.order.OrderStatus;
+import org.project.common.Status;
 import org.project.orderservice.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,7 @@ public class OrderService {
     public OrderDTO confirmOrder(String orderId) {
         Order order = orderRepository.findByOrderId(orderId);
         if (order != null)
-            order.setOrderStatus(OrderStatus.COMPLETED);
+            order.setOrderStatus(Status.COMPLETED);
         else
             return new OrderDTO(null, -1L);
         return new OrderDTO(null, order.getOrderId());
@@ -30,7 +30,7 @@ public class OrderService {
     public OrderDTO cancelOrder(String orderId) {
         Order order = orderRepository.findByOrderId(orderId);
         if (order != null)
-            order.setOrderStatus(OrderStatus.CANCELED);
+            order.setOrderStatus(Status.CANCELED);
         else
             return new OrderDTO(null, -1L);
         return new OrderDTO(null, order.getOrderId());

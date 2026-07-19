@@ -2,6 +2,7 @@ package org.project.common.order;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.project.common.Status;
 
 import java.util.List;
 
@@ -15,5 +16,5 @@ public class Order {
     @ElementCollection
     private List<org.project.common.order.Item> items;
     private Double total;
-    private OrderStatus orderStatus;
+    private Status orderStatus;
 }

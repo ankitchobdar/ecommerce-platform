@@ -8,7 +8,6 @@
         <module>common</module>
         <module>order-service</module>
         <module>payment-service</module>
-        <module>address-service</module>
         <module>inventory-service</module>
         <module>orchestrator</module>
     </modules>
