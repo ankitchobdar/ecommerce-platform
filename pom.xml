@@ -10,6 +10,7 @@
         <module>payment-service</module>
         <module>address-service</module>
         <module>inventory-service</module>
+        <module>orchestrator</module>
     </modules>
     <properties>
         <java.version>26</java.version>
