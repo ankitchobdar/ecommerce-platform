@@ -1,5 +1,6 @@
 package org.project.paymentservice.service;
 
+import jakarta.transaction.Transactional;
 import org.project.common.Status;
 import org.project.common.payment.Payment;
 import org.project.common.payment.PaymentDTO;
@@ -13,11 +14,13 @@ public class PaymentService {
     @Autowired
     private PaymentRepository PaymentRepository;
 
+    @Transactional
     public PaymentDTO processPayment(Payment Payment) {
         PaymentRepository.save(Payment);
         return new PaymentDTO(null, Payment.getPaymentId());
     }
 
+    @Transactional
     public PaymentDTO confirmPayment(Long paymentId) {
         Payment payment = PaymentRepository.findByPaymentId(paymentId);
         if (payment != null)
@@ -27,6 +30,7 @@ public class PaymentService {
         return new PaymentDTO(null, payment.getPaymentId());
     }
 
+    @Transactional
     public PaymentDTO cancelPayment(Long paymentId) {
         Payment payment = PaymentRepository.findByPaymentId(paymentId);
         if (payment != null)

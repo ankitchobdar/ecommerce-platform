@@ -2,6 +2,7 @@ package org.project.common.order;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.project.common.Item;
 import org.project.common.Status;
 
 import java.util.List;
@@ -14,7 +15,7 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long orderId;
     @ElementCollection
-    private List<org.project.common.order.Item> items;
+    private List<Item> items;
     private Double total;
     private Status orderStatus;
 }

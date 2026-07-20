@@ -14,6 +14,6 @@ import java.time.LocalDateTime;
 public class BaseMessage {
     private String id;
     private LocalDateTime timestamp;
-    private String status;
+    private Status status;
     private String message;
 }

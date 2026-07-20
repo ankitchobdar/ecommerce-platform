@@ -1,5 +1,6 @@
 package org.project.orderservice.service;
 
+import jakarta.transaction.Transactional;
 import org.project.common.order.Order;
 import org.project.common.order.OrderDTO;
 import org.project.common.Status;
@@ -13,11 +14,13 @@ public class OrderService {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Transactional
     public OrderDTO processOrder(Order order) {
         orderRepository.save(order);
         return new OrderDTO(null, order.getOrderId());
     }
 
+    @Transactional
     public OrderDTO confirmOrder(String orderId) {
         Order order = orderRepository.findByOrderId(orderId);
         if (order != null)
@@ -27,6 +30,7 @@ public class OrderService {
         return new OrderDTO(null, order.getOrderId());
     }
 
+    @Transactional
     public OrderDTO cancelOrder(String orderId) {
         Order order = orderRepository.findByOrderId(orderId);
         if (order != null)
