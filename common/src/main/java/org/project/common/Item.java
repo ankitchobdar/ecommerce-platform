@@ -1,15 +1,13 @@
 package org.project.common;
 
-import jakarta.persistence.Embeddable;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Embeddable
+@Entity
 @Data
+@Table(name= "items")
 @NoArgsConstructor
 @AllArgsConstructor
 public class Item {
@@ -19,6 +17,7 @@ public class Item {
     private Long itemId;
     private String name;
     private Integer quantity;
+    @Transient
     private Integer actualQuantity;
     private Double price;
 }

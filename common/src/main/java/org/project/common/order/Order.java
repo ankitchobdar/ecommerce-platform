@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import org.project.common.Item;
 import org.project.common.Status;
+import org.project.common.payment.PaymentType;
 
 import java.util.List;
 
@@ -14,8 +15,9 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long orderId;
-    @ElementCollection
+    @OneToMany(cascade = CascadeType.ALL)
     private List<Item> items;
     private Double total;
     private Status orderStatus;
+    private PaymentType paymentType;
 }

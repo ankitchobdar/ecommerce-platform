@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import org.project.common.Status;
 import org.project.common.payment.Payment;
 import org.project.common.payment.PaymentDTO;
+import org.project.common.utility.MessageUtility;
 import org.project.paymentservice.repository.PaymentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,8 @@ public class PaymentService {
     @Transactional
     public PaymentDTO processPayment(Payment Payment) {
         PaymentRepository.save(Payment);
-        return new PaymentDTO(null, Payment.getPaymentId());
+        return new PaymentDTO(MessageUtility.getBaseMessage(Status.SUCCESS, "Payment processed successfully"),
+                Payment.getPaymentId());
     }
 
     @Transactional
@@ -26,8 +28,9 @@ public class PaymentService {
         if (payment != null)
             payment.setPaymentStatus(Status.COMPLETED);
         else
-            return new PaymentDTO(null, -1L);
-        return new PaymentDTO(null, payment.getPaymentId());
+            return new PaymentDTO(MessageUtility.getBaseMessage(Status.FAILED, "Payment not found"), -1L);
+        return new PaymentDTO(MessageUtility.getBaseMessage(Status.SUCCESS, "Payment confirmed successfully"),
+                payment.getPaymentId());
     }
 
     @Transactional
@@ -36,8 +39,9 @@ public class PaymentService {
         if (payment != null)
             payment.setPaymentStatus(Status.CANCELED);
         else
-            return new PaymentDTO(null, -1L);
-        return new PaymentDTO(null, payment.getPaymentId());
+            return new PaymentDTO(MessageUtility.getBaseMessage(Status.FAILED, "Payment not found"), -1L);
+        return new PaymentDTO(MessageUtility.getBaseMessage(Status.SUCCESS, "Payment canceled successfully"),
+                payment.getPaymentId());
     }
     
 }

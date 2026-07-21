@@ -3,5 +3,7 @@ package org.project.common;
 public enum Status {
     CANCELED,
     PENDING,
-    COMPLETED
+    COMPLETED,
+    SUCCESS,
+    FAILED
 }
