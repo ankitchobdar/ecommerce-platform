@@ -29,7 +29,7 @@ public class InventoryService {
                 item.setActualQuantity(0);
             } else {
                 log.info("Checking inventory {}", inventoryItem.getItemId());
-                item.setActualQuantity(inventoryItem.getActualQuantity());
+                item.setActualQuantity(inventoryItem.getQuantity());
             }
         });
         return new InventoryDTO(

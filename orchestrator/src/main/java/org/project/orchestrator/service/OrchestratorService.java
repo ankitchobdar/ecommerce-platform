@@ -38,11 +38,8 @@ public class OrchestratorService {
                     .retrieve()
                     .body(InventoryDTO.class);
 
-            inventoryDTO.items().stream()
-                    .forEach(item -> item.setQuantity(item.getActualQuantity() - item.getQuantity()));
-
             Item item = inventoryDTO.items().stream()
-                    .filter(i -> i.getQuantity() < 0)
+                    .filter(i -> i.getActualQuantity() - i.getQuantity() < 0)
                     .findFirst()
                     .orElse(null);
 
@@ -51,17 +48,17 @@ public class OrchestratorService {
 
             if (item == null) {
                 //processOrder
-                OrderDTO orderDTO = restClient.post().uri("http://localhost:8081/order/processOrder")
+                OrderDTO orderDTO = restClient.post().uri("http://localhost:8081/order/process")
                         .body(order)
                         .retrieve()
                         .body(OrderDTO.class);
                 //confirmOrder
                 OrderDTO confirmedOrder = restClient.get()
-                        .uri("http://localhost:8081/order/confirmOrder?orderId=" + orderDTO.orderId())
+                        .uri("http://localhost:8081/order/confirm?orderId=" + orderDTO.orderId())
                         .retrieve()
                         .body(OrderDTO.class);
                 //processPayment
-                PaymentDTO paymentDTO = restClient.post().uri("http://localhost:8082/payment/processPayment")
+                PaymentDTO paymentDTO = restClient.post().uri("http://localhost:8082/payment/process")
                         .body(Payment.builder()
                                 .orderId(confirmedOrder.orderId())
                                 .paymentType(order.getPaymentType())
@@ -71,7 +68,7 @@ public class OrchestratorService {
                         .body(PaymentDTO.class);
                 //confirmPayment
                 PaymentDTO confirmedPayment = restClient.get()
-                        .uri("http://localhost:8082/payment/confirmPayment?paymentId=" + paymentDTO.paymentId())
+                        .uri("http://localhost:8082/payment/confirm?paymentId=" + paymentDTO.paymentId())
                         .retrieve()
                         .body(PaymentDTO.class);
                 //updateInventory
@@ -85,6 +82,7 @@ public class OrchestratorService {
             } else
                 throw new InventoryExhaustedException("Item went out of stock", "ITEM_OUT_OF_STOCK", HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
+            e.printStackTrace();
             log.error("Error processing order {}", order, e);
             reverseOrder();
         }
