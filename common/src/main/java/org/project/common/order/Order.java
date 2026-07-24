@@ -18,6 +18,8 @@ public class Order {
     @OneToMany(cascade = CascadeType.MERGE, fetch = FetchType.EAGER)
     private List<Item> items;
     private Double total;
+    @Enumerated(EnumType.STRING)
     private Status orderStatus;
+    @Enumerated(EnumType.STRING)
     private PaymentType paymentType;
 }

@@ -5,11 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.project.common.Item;
 import org.project.common.Status;
 import org.project.common.inventory.InventoryDTO;
+import org.project.common.orchestrator.ProcessOrderDTO;
 import org.project.common.order.Order;
 import org.project.common.order.OrderDTO;
 import org.project.common.payment.Payment;
 import org.project.common.payment.PaymentDTO;
+import org.project.common.utility.MessageUtility;
 import org.project.orchestrator.exception.InventoryExhaustedException;
+import org.project.orchestrator.exception.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,11 +31,11 @@ public class OrchestratorService {
     }
 
     @Transactional
-    public InventoryDTO processOrder(Order order) {
-        InventoryDTO updatedInventory = null;
+    public ProcessOrderDTO processOrder(Order order) {
+        boolean outOfStock = false;
+        ProcessOrderDTO processOrderDTO = ProcessOrderDTO.builder().build();
         try {
             //checkInventory
-            log.info("Processing order {}", order);
             InventoryDTO inventoryDTO = restClient.post().uri("http://localhost:8083/inventory/checkInventory")
                     .body(order.getItems())
                     .retrieve()
@@ -73,20 +76,28 @@ public class OrchestratorService {
                         .body(PaymentDTO.class);
                 //updateInventory
 
-                updatedInventory = restClient.post()
+                InventoryDTO updatedInventory = restClient.post()
                         .uri("http://localhost:8083/inventory/updateInventory")
                         .body(inventoryDTO.items())
                         .retrieve()
                         .body(InventoryDTO.class);
 
+                processOrderDTO.setBaseMessage(MessageUtility.getBaseMessage(Status.SUCCESS, "Order processed successfully"));
+                processOrderDTO.setItems(updatedInventory.items());
+                processOrderDTO.setTotalPrice(updatedInventory.items().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum());
+                processOrderDTO.setPaymentStatus(confirmedPayment.paymentStatus());
             } else
-                throw new InventoryExhaustedException("Item went out of stock", "ITEM_OUT_OF_STOCK", HttpStatus.BAD_REQUEST);
+                outOfStock = true;
         } catch (Exception e) {
-            e.printStackTrace();
             log.error("Error processing order {}", order, e);
             reverseOrder();
+            throw new ServiceException("Error processing order", "500", HttpStatus.INTERNAL_SERVER_ERROR);
         }
-        return updatedInventory;
+
+        if (outOfStock) {
+            throw new InventoryExhaustedException("Item with insufficient quantity", "500", HttpStatus.OK);
+        }
+        return processOrderDTO;
     }
 
     @Transactional

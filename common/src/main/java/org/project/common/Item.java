@@ -10,8 +10,7 @@ import lombok.NoArgsConstructor;
 @Table(name= "items")
 @NoArgsConstructor
 @AllArgsConstructor
-public class Item {
-
+public class Item implements Cloneable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long itemId;
@@ -20,4 +19,13 @@ public class Item {
     @Transient
     private Integer actualQuantity;
     private Double price;
+
+    @Override
+    public Item clone() {
+        try {
+            return (Item) super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError();
+        }
+    }
 }

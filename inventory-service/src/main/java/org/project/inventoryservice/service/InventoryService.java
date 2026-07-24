@@ -38,10 +38,12 @@ public class InventoryService {
 
     @Transactional
     public InventoryDTO updateInventory(List<Item> items) {
+        List<Item> originalItems = items.stream().map(Item::clone).toList();
         log.info("Updating inventory for items: {}", items);
+        items.forEach(item -> item.setQuantity(item.getActualQuantity() - item.getQuantity()));
         inventoryRepository.saveAll(items);
         return new InventoryDTO(
-                MessageUtility.getBaseMessage(Status.SUCCESS, "Inventory updated successfully"), items);
+                MessageUtility.getBaseMessage(Status.SUCCESS, "Inventory updated successfully"), originalItems);
     }
 
     @Transactional

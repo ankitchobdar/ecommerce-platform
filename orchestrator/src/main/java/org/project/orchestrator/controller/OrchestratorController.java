@@ -1,6 +1,6 @@
 package org.project.orchestrator.controller;
 
-import org.project.common.inventory.InventoryDTO;
+import org.project.common.orchestrator.ProcessOrderDTO;
 import org.project.common.order.Order;
 import org.project.orchestrator.service.OrchestratorService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +17,7 @@ public class OrchestratorController {
     private OrchestratorService orchestratorService;
 
     @PostMapping("/process")
-    public InventoryDTO processOrder(@RequestBody Order order) {
+    public ProcessOrderDTO processOrder(@RequestBody Order order) {
         return orchestratorService.processOrder(order);
     }
 

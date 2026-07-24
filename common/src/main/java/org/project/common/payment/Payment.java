@@ -18,6 +18,8 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long paymentId;
     private Long orderId;
+    @Enumerated(EnumType.STRING)
     private PaymentType paymentType;
+    @Enumerated(EnumType.STRING)
     private Status paymentStatus;
 }
