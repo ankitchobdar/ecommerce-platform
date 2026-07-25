@@ -22,6 +22,9 @@ import org.springframework.web.client.RestClient;
 @Service
 public class OrchestratorService {
 
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
+
     private RestClient restClient;
 
     OrchestratorService() {
@@ -110,5 +113,10 @@ public class OrchestratorService {
             //log error
         }
         return null;
+    }
+
+    public String sendPayment(String paymentId) {
+        kafkaProducerService.sendMessage("my-topic", paymentId);
+        return "Payment sent successfully";
     }
 }
