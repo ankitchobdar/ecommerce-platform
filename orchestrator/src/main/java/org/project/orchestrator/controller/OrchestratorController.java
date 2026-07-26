@@ -23,8 +23,14 @@ public class OrchestratorController {
         return orchestratorService.reverseOrder();
     }
 
-    @GetMapping("/send")
-    public String sendPayment(@RequestParam String paymentId) {
-        return orchestratorService.sendPayment(paymentId);
+//    @GetMapping("/send")
+//    public ProcessOrderDTO sendPayment(@RequestParam String paymentId) {
+//        return orchestratorService.sendPayment(paymentId);
+//    }
+
+    @PostMapping("/send")
+    public ProcessOrderDTO sendPayment(@RequestBody Order order) {
+        return orchestratorService.sendPayment(order);
     }
+
 }

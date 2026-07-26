@@ -115,8 +115,11 @@ public class OrchestratorService {
         return null;
     }
 
-    public String sendPayment(String paymentId) {
-        kafkaProducerService.sendMessage("my-topic", paymentId);
-        return "Payment sent successfully";
+    public ProcessOrderDTO sendPayment(Order order) {
+        kafkaProducerService.sendMessage("my-topic", order);
+        return ProcessOrderDTO.builder()
+                .baseMessage(MessageUtility.getBaseMessage(Status.SUCCESS, "Payment sent successfully"))
+                .build();
     }
+
 }
