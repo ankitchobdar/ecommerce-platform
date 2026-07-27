@@ -1,0 +1,17 @@
+package org.project.common.saga;
+
+public enum SagaStatus {
+    ORDER_INITIATED,
+    ORDER_COMPLETED,
+
+    PAYMENT_INITIATED,
+    PAYMENT_FAILED,
+    PAYMENT_COMPLETED,
+
+    INVENTORY_RESERVED,
+    INVENTORY_UPDATED,
+
+    SAGA_IN_PROGRESS,
+    SAGA_COMPLETED,
+    SAGA_FAILED
+}

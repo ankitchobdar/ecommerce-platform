@@ -7,6 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.project.common.Status;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "payments")
 @Data
@@ -17,9 +20,15 @@ public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long paymentId;
-    private Long orderId;
+    private Long sagaId;
+    private BigDecimal amount;
     @Enumerated(EnumType.STRING)
     private PaymentType paymentType;
     @Enumerated(EnumType.STRING)
     private Status paymentStatus;
+    private LocalDateTime updatedAt;
+    private LocalDateTime createdAt;
+
+    //delete
+    private Long orderId;
 }

@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.project.common.BaseMessage;
-import org.project.common.Item;
+import org.project.common.inventory.Item;
 import org.project.common.Status;
 
 import java.util.List;

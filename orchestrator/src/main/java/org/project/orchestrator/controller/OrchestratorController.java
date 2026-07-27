@@ -1,5 +1,7 @@
 package org.project.orchestrator.controller;
 
+import org.project.common.orchestrator.OrchestratorRequestDTO;
+import org.project.common.orchestrator.OrchestratorResponseDTO;
 import org.project.common.orchestrator.ProcessOrderDTO;
 import org.project.common.order.Order;
 import org.project.orchestrator.service.OrchestratorService;
@@ -18,19 +20,14 @@ public class OrchestratorController {
         return orchestratorService.processOrder(order);
     }
 
-    @PostMapping("/reverse")
-    public String reverseOrder() {
-        return orchestratorService.reverseOrder();
+    @PostMapping("/processOrder")
+    public OrchestratorResponseDTO processOrder(@RequestBody OrchestratorRequestDTO processOrderDTO) {
+        return orchestratorService.processOrder(processOrderDTO);
     }
 
-//    @GetMapping("/send")
-//    public ProcessOrderDTO sendPayment(@RequestParam String paymentId) {
-//        return orchestratorService.sendPayment(paymentId);
-//    }
-
-    @PostMapping("/send")
-    public ProcessOrderDTO sendPayment(@RequestBody Order order) {
-        return orchestratorService.sendPayment(order);
+    @GetMapping("/reverseOrder")
+    public OrchestratorResponseDTO reverseOrder(@RequestParam String orderId) {
+        return orchestratorService.reverseOrder(orderId);
     }
 
 }

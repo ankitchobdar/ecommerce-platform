@@ -1,9 +1,11 @@
-package org.project.common;
+package org.project.common.inventory;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Data
@@ -18,7 +20,11 @@ public class Item implements Cloneable {
     private Integer quantity;
     @Transient
     private Integer actualQuantity;
+    private Integer reservedQuantity;
+    private String reservationId;
     private Double price;
+    private LocalDateTime updatedAt;
+    private LocalDateTime createdAt;
 
     @Override
     public Item clone() {

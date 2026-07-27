@@ -2,9 +2,11 @@ package org.project.orchestrator.service;
 
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.project.common.Item;
+import org.project.common.inventory.Item;
 import org.project.common.Status;
 import org.project.common.inventory.InventoryDTO;
+import org.project.common.orchestrator.OrchestratorRequestDTO;
+import org.project.common.orchestrator.OrchestratorResponseDTO;
 import org.project.common.orchestrator.ProcessOrderDTO;
 import org.project.common.order.Order;
 import org.project.common.order.OrderDTO;
@@ -14,13 +16,19 @@ import org.project.common.utility.MessageUtility;
 import org.project.orchestrator.exception.InventoryExhaustedException;
 import org.project.orchestrator.exception.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
+
 @Slf4j
 @Service
 public class OrchestratorService {
+
+    @Value("${spring.kafka.template.order-process-topic}")
+    private String orderEvents;
 
     @Autowired
     private KafkaProducerService kafkaProducerService;
@@ -34,7 +42,7 @@ public class OrchestratorService {
     }
 
     @Transactional
-    public ProcessOrderDTO processOrder(Order order) {
+    public ProcessOrderDTO process(Order order) {
         boolean outOfStock = false;
         ProcessOrderDTO processOrderDTO = ProcessOrderDTO.builder().build();
         try {
@@ -93,7 +101,7 @@ public class OrchestratorService {
                 outOfStock = true;
         } catch (Exception e) {
             log.error("Error processing order {}", order, e);
-            reverseOrder();
+            //reverseOrder(orderId);
             throw new ServiceException("Error processing order", "500", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
@@ -104,15 +112,33 @@ public class OrchestratorService {
     }
 
     @Transactional
-    public String reverseOrder() {
+    public ProcessOrderDTO processOrder(Order order) {
+        ProcessOrderDTO processOrderDTO = ProcessOrderDTO.builder().build();
         try {
-            //reverseInventory
-            //reversePayment
-            //reverseOrder
+            //Check inventory
+            InventoryDTO inventoryDTO = restClient.post().uri("http://localhost:8083/inventory/checkInventory")
+                    .body(order.getItems())
+                    .retrieve()
+                    .body(InventoryDTO.class);
+
+            assert inventoryDTO != null;
+            List<Item> outOfStockItems = inventoryDTO.items().stream()
+                    .filter(i -> i.getActualQuantity() - i.getQuantity() < 0)
+                    .toList();
+            if (!outOfStockItems.isEmpty()) {
+                return ProcessOrderDTO.builder()
+                        .baseMessage(MessageUtility.getBaseMessage(Status.FAILED, "Item with insufficient quantity"))
+                        .items(outOfStockItems)
+                    .build();
+            }
+            //Confirm order
+            //Process payment
+            //Update inventory
         } catch (Exception e) {
-            //log error
+            throw new RuntimeException(e);
         }
-        return null;
+
+        return processOrderDTO;
     }
 
     public ProcessOrderDTO sendPayment(Order order) {
@@ -122,4 +148,28 @@ public class OrchestratorService {
                 .build();
     }
 
+    @Transactional
+    public OrchestratorResponseDTO processOrder(OrchestratorRequestDTO processOrderDTO) {
+        OrchestratorResponseDTO orchestratorResponseDTO = new OrchestratorResponseDTO();
+        //Reserve Inventory
+        //Process Order
+        //Process Payment
+        //Update Inventory
+        //Notify User
+        return orchestratorResponseDTO;
+    }
+
+    @Transactional
+    public OrchestratorResponseDTO reverseOrder(String orderId) {
+        OrchestratorResponseDTO orchestratorResponseDTO = new OrchestratorResponseDTO();
+        try {
+            //Release Inventory
+            //Reverse Order
+            //Reverse Payment
+            //Notify User
+        } catch (Exception e) {
+            //log error
+        }
+        return orchestratorResponseDTO;
+    }
 }
