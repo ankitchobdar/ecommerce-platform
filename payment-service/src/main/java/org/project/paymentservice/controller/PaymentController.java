@@ -2,29 +2,26 @@ package org.project.paymentservice.controller;
 
 import org.project.common.payment.Payment;
 import org.project.common.payment.PaymentDTO;
+import org.project.common.payment.PaymentRequestDTO;
+import org.project.common.payment.PaymentResponseDTO;
 import org.project.paymentservice.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/payment")
+@RequestMapping("/api/v1/payment")
 public class PaymentController {
 
     @Autowired
-    private PaymentService PaymentService;
+    private PaymentService paymentService;
 
     @PostMapping("/process")
-    public PaymentDTO processPayment(@RequestBody Payment payment) {
-        return PaymentService.processPayment(payment);
+    public PaymentResponseDTO processPayment(@RequestBody PaymentRequestDTO paymentRequestDTO) {
+        return paymentService.processPayment(paymentRequestDTO);
     }
 
-    @GetMapping("/confirm")
-    public PaymentDTO confirmPayment(@RequestParam Long paymentId) {
-        return PaymentService.confirmPayment(paymentId);
-    }
-
-    @GetMapping("/cancel")
-    public PaymentDTO cancelPayment(@RequestParam Long paymentId) {
-        return PaymentService.cancelPayment(paymentId);
+    @GetMapping("reverse")
+    public PaymentResponseDTO reversePayment(@RequestParam(name = "paymentid") Long paymentId) {
+        return paymentService.reversePayment(paymentId);
     }
 }

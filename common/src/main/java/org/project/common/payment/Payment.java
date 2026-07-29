@@ -18,7 +18,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Payment {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "payments_seq")
+    @SequenceGenerator(name = "payments_seq", sequenceName = "payments_id_seq", allocationSize = 1)
     private Long paymentId;
     private Long sagaId;
     private BigDecimal amount;
@@ -28,7 +29,4 @@ public class Payment {
     private Status paymentStatus;
     private LocalDateTime updatedAt;
     private LocalDateTime createdAt;
-
-    //delete
-    private Long orderId;
 }

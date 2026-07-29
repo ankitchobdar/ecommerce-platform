@@ -17,16 +17,6 @@ public class InventoryController {
     @Autowired
     private InventoryService inventoryService;
 
-    @PostMapping("/checkInventory")
-    public InventoryDTO checkInventory(@RequestBody List<Item> items) {
-        return inventoryService.checkInventory(items);
-    }
-
-    @PostMapping("/updateInventory")
-    public InventoryDTO updateInventory(@RequestBody List<Item> items) {
-        return inventoryService.updateInventory(items);
-    }
-
     @PostMapping("/addInventory")
     public InventoryDTO addInventory(@RequestBody List<Item> items) {
         return inventoryService.addInventory(items);

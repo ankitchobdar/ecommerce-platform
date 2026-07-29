@@ -3,6 +3,7 @@ package org.project.common.order;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.project.common.BaseMessage;
 import org.project.common.Status;
 
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderResponseDTO {
+    private BaseMessage baseMessage;
     private Long sagaId;
     private Long orderId;
     private Status orderStatus;

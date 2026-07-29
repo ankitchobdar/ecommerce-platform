@@ -25,33 +25,6 @@ public class InventoryService {
     private InventoryRepository inventoryRepository;
 
     @Transactional
-    public InventoryDTO checkInventory(List<Item> items) {
-        log.info("Checking inventory {}", items);
-        //Check inventory for each items
-        items.forEach(item -> {
-            Item inventoryItem = inventoryRepository.getItemByItemId(item.getItemId());
-            if (inventoryItem == null) {
-                item.setActualQuantity(0);
-            } else {
-                log.info("Checking inventory {}", inventoryItem.getItemId());
-                item.setActualQuantity(inventoryItem.getQuantity());
-            }
-        });
-        return new InventoryDTO(
-                MessageUtility.getBaseMessage(Status.SUCCESS, "Inventory checked successfully"), items);
-    }
-
-    @Transactional
-    public InventoryDTO updateInventory(List<Item> items) {
-        List<Item> originalItems = items.stream().map(Item::clone).toList();
-        log.info("Updating inventory for items: {}", items);
-        items.forEach(item -> item.setQuantity(item.getActualQuantity() - item.getQuantity()));
-        inventoryRepository.saveAll(items);
-        return new InventoryDTO(
-                MessageUtility.getBaseMessage(Status.SUCCESS, "Inventory updated successfully"), originalItems);
-    }
-
-    @Transactional
     public InventoryDTO addInventory(List<Item> items) {
         log.info("Adding inventory for items: {}", items);
         inventoryRepository.saveAll(items);

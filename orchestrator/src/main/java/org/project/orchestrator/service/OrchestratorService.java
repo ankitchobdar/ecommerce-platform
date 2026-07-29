@@ -148,13 +148,14 @@ public class OrchestratorService {
                 .build();
     }
 
+    //NEW APPROACH
     @Transactional
     public OrchestratorResponseDTO processOrder(OrchestratorRequestDTO processOrderDTO) {
         OrchestratorResponseDTO orchestratorResponseDTO = new OrchestratorResponseDTO();
-        //Reserve Inventory
-        //Process Order
+        //Reserve Inventory DONE
+        //Process Order DONE
         //Process Payment
-        //Update Inventory
+        //Update Inventory DONE
         //Notify User
         return orchestratorResponseDTO;
     }
@@ -163,8 +164,8 @@ public class OrchestratorService {
     public OrchestratorResponseDTO reverseOrder(String orderId) {
         OrchestratorResponseDTO orchestratorResponseDTO = new OrchestratorResponseDTO();
         try {
-            //Release Inventory
-            //Reverse Order
+            //Release Inventory DONE
+            //Reverse Order DONE
             //Reverse Payment
             //Notify User
         } catch (Exception e) {
