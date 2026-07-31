@@ -26,7 +26,6 @@ public class PaymentService {
         Payment payment = null;
         try {
             payment = Payment.builder()
-                .orderId(paymentRequestDTO.getOrderId())
                 .sagaId(paymentRequestDTO.getSagaId())
                 .paymentStatus(Status.COMPLETED)
                 .amount(paymentRequestDTO.getTotal())

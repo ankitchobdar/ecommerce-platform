@@ -15,14 +15,14 @@ public class OrchestratorController {
     @Autowired
     private OrchestratorService orchestratorService;
 
-    @PostMapping("/process")
-    public ProcessOrderDTO processOrder(@RequestBody Order order) {
-        return orchestratorService.processOrder(order);
-    }
+//    @PostMapping("/process")
+//    public ProcessOrderDTO processOrder(@RequestBody Order order) {
+//        return orchestratorService.processOrder(order);
+//    }
 
     @PostMapping("/processOrder")
-    public OrchestratorResponseDTO processOrder(@RequestBody OrchestratorRequestDTO processOrderDTO) {
-        return orchestratorService.processOrder(processOrderDTO);
+    public OrchestratorResponseDTO processOrder(@RequestBody OrchestratorRequestDTO requestDTO) {
+        return orchestratorService.processOrder(requestDTO);
     }
 
     @GetMapping("/reverseOrder")
