@@ -20,8 +20,9 @@ public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "payments_seq")
     @SequenceGenerator(name = "payments_seq", sequenceName = "payments_id_seq", allocationSize = 1)
-    private Long paymentId;
+    private Long id;
     private Long sagaId;
+    private String orderId;
     private BigDecimal amount;
     @Enumerated(EnumType.STRING)
     private PaymentType paymentType;

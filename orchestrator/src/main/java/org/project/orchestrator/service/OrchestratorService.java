@@ -2,22 +2,14 @@ package org.project.orchestrator.service;
 
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.project.common.inventory.InventoryRequestDTO;
-import org.project.common.inventory.Item;
 import org.project.common.Status;
-import org.project.common.inventory.InventoryDTO;
+import org.project.common.events.*;
+import org.project.common.inventory.InventoryResponseDTO;
+import org.project.common.saga.SagaEvent;
 import org.project.common.orchestrator.OrchestratorRequestDTO;
 import org.project.common.orchestrator.OrchestratorResponseDTO;
-import org.project.common.orchestrator.ProcessOrderDTO;
-import org.project.common.order.Order;
-import org.project.common.order.OrderDTO;
-import org.project.common.order.OrderRequestDTO;
-import org.project.common.payment.Payment;
-import org.project.common.payment.PaymentDTO;
 import org.project.common.saga.Saga;
 import org.project.common.saga.SagaStatus;
-import org.project.common.utility.MessageUtility;
-import org.project.orchestrator.exception.InventoryExhaustedException;
 import org.project.orchestrator.exception.ServiceException;
 import org.project.orchestrator.repository.OrchestratorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,12 +18,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.project.common.utility.MessageUtility;
 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -49,9 +42,6 @@ public class OrchestratorService {
     @Value("${spring.kafka.template.compensation-process-topic}")
     private String compensationEvents;
 
-    @Value("${spring.kafka.template.saga-topic}")
-    private String sagaEvents;
-
     @Autowired
     private KafkaProducerService kafkaProducerService;
 
@@ -60,11 +50,8 @@ public class OrchestratorService {
 
     private RestClient restClient;
 
-    // Map to store latches for each saga, keyed by sagaId
-    private final Map<Long, CountDownLatch> sagaLatches = new ConcurrentHashMap<>();
-
-    // Map to store saga responses, keyed by sagaId
-    private final Map<Long, Saga> sagaResponses = new ConcurrentHashMap<>();
+    // Map to hold pending saga results for request-reply pattern
+    private final Map<Long, CompletableFuture<OrchestratorResponseDTO>> pendingSagas = new ConcurrentHashMap<>();
 
     OrchestratorService() {
         this.restClient = RestClient.builder()
@@ -184,71 +171,206 @@ public class OrchestratorService {
     public OrchestratorResponseDTO processOrder(OrchestratorRequestDTO requestDTO) {
         OrchestratorResponseDTO orchestratorResponseDTO = new OrchestratorResponseDTO();
         try {
+            log.info("[KAFKA] Processing order {}", requestDTO);
+            String orderId = UUID.randomUUID().toString();
             Saga saga = Saga.builder()
-                    .createdAt(java.time.LocalDateTime.now())
-                    .status(SagaStatus.ORDER_INITIATED)
+                    .status(SagaStatus.SAGA_INITIATED)
+                    .orderId(orderId)
                     .build();
             orchestratorRepository.save(saga);
 
             Long sagaId = saga.getSagaId();
 
-            // Create a latch to wait for saga completion (number of expected events)
-            CountDownLatch sagaLatch = new CountDownLatch(1);
-            sagaLatches.put(sagaId, sagaLatch);
+            // prepare future for request-reply
+            CompletableFuture<OrchestratorResponseDTO> future = new CompletableFuture<>();
+            pendingSagas.put(sagaId, future);
 
+            //Reserve Inventory
+            InventoryReservedEvent event = new InventoryReservedEvent(
+                    sagaId,
+                    orderId,
+                    LocalDateTime.now(),
+                    null,
+                    requestDTO.getItems());
+            kafkaProducerService.sendMessage(inventoryEvents, "inventory-service", event);
+
+            saga.setStatus(SagaStatus.INVENTORY_RESERVATION_INITIATED);
+            orchestratorRepository.save(saga);
+
+            // Wait for saga to complete (request-reply) with timeout
             try {
-                //Reserve Inventory
-                InventoryRequestDTO inventoryRequestDTO = new InventoryRequestDTO(
-                        sagaId,
-                        requestDTO.getItems()
-                );
-                kafkaProducerService.sendMessage(inventoryEvents, "inventory-service", inventoryRequestDTO);
+                OrchestratorResponseDTO result = future.get(30, java.util.concurrent.TimeUnit.SECONDS);
+                return result;
+            } catch (java.util.concurrent.TimeoutException te) {
+                // remove pending future
+                pendingSagas.remove(sagaId);
 
-                //Process Order
-                OrderRequestDTO orderRequestDTO = new OrderRequestDTO(
-                        sagaId,
-                        requestDTO.getItems(),
-                        requestDTO.getTotalAmount());
-                kafkaProducerService.sendMessage(orderEvents, "order-service", orderRequestDTO);
+                // mark saga as failed and persist
+                Saga timeoutSaga = orchestratorRepository.findSagaBySagaId(sagaId)
+                        .orElse(null);
+                if (timeoutSaga != null) {
+                    timeoutSaga.setStatus(SagaStatus.SAGA_FAILED);
+                    orchestratorRepository.save(timeoutSaga);
 
-                //Process Payment
-                // (Add payment logic here)
-
-                //Wait for saga events to complete (with timeout)
-                boolean completed = sagaLatch.await(30, TimeUnit.SECONDS);
-
-                if (!completed) {
-                    log.warn("Saga processing timed out for sagaId: {}", sagaId);
-                    throw new ServiceException("Saga processing timeout", "504", HttpStatus.GATEWAY_TIMEOUT);
+                    // publish compensation event so other services can rollback
+                    OrderCancelledEvent cancelEvent = new OrderCancelledEvent();
+                    cancelEvent.sagaId = sagaId;
+                    cancelEvent.orderId = timeoutSaga.getOrderId();
+                    cancelEvent.createdAt = LocalDateTime.now();
+                    kafkaProducerService.sendMessage(compensationEvents, "orchestrator-service", cancelEvent);
                 }
 
-                // Retrieve the saga response
-                Saga sagaResponse = sagaResponses.get(sagaId);
-                log.info("Saga completed with status: {}", sagaResponse.getStatus());
-
-                // You can now use sagaResponse to build the orchestratorResponseDTO
                 orchestratorResponseDTO.setSagaId(sagaId);
-
-            } finally {
-                // Clean up
-                sagaLatches.remove(sagaId);
-                sagaResponses.remove(sagaId);
+                orchestratorResponseDTO.setBaseMessage(MessageUtility.getBaseMessage(Status.FAILED, "Saga timed out; compensation initiated"));
+                return orchestratorResponseDTO;
+            } catch (InterruptedException | java.util.concurrent.ExecutionException ex) {
+                pendingSagas.remove(sagaId);
+                log.error("Error waiting for saga result", ex);
+                throw new ServiceException(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
             }
-
-        } catch (InterruptedException e) {
-            log.error("Thread interrupted while waiting for saga events", e);
-            Thread.currentThread().interrupt();
-            throw new ServiceException("Saga processing interrupted", "500", HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (ServiceException se) {
+            throw se;
         } catch (Exception e) {
             log.error("Error processing order", e);
-            throw new RuntimeException(e);
+            throw new ServiceException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
-        return orchestratorResponseDTO;
+    }
+
+    /**
+     * Kafka listener to receive saga status updates from the saga-topic
+     */
+    @KafkaListener(topics = "${spring.kafka.template.order-reply-topic}", groupId = "orchestrator-group")
+    public void handleSagaEvent(SagaEvent sagaEvent) {
+        log.info("Received saga event: {}", sagaEvent);
+
+        switch (sagaEvent.getClass().getSimpleName()) {
+        case "InventoryUpdatedEvent":
+            // Handle inventory updated event
+            handleInventoryUpdate((InventoryUpdatedEvent) sagaEvent);
+            break;
+        case "OrderCompletedEvent":
+            // Handle order completed event
+            handleOrderCompletion((OrderCompletedEvent) sagaEvent);
+            break;
+        case "PaymentCompletedEvent":
+            // Handle payment completed event
+            handlePaymentCompletion((PaymentCompletedEvent) sagaEvent);
+            break;
+        // Add more cases as needed
+        }
+
+    }
+
+    private void handleInventoryUpdate(InventoryUpdatedEvent sagaEvent) {
+        Saga saga = orchestratorRepository.findSagaBySagaId(sagaEvent.getSagaId())
+                .orElseThrow(() -> new RuntimeException("Saga not found for sagaId: " + sagaEvent.getSagaId()));
+        saga.setStatus(SagaStatus.INVENTORY_RESERVATION_COMPLETED);
+        orchestratorRepository.save(saga);
+
+        if(sagaEvent.getStatus().equals(Status.SUCCESS)) {
+            // Proceed to next step in the saga, e.g., process order
+            OrderInitiatedEvent orderInitiatedEvent = OrderInitiatedEvent.builder()
+                    .sagaId(sagaEvent.getSagaId())
+                    .orderId(sagaEvent.getOrderId())
+                    .items(sagaEvent.getItems())
+                    .total(sagaEvent.getTotal())
+                    //.paymentType(sagaEvent.getPaymentType())
+                    .build();
+
+            kafkaProducerService.sendMessage(orderEvents, "orchestrator-service", orderInitiatedEvent);
+            saga.setStatus(SagaStatus.ORDER_INITIATED);
+            orchestratorRepository.save(saga);
+        } else {
+            // Initiated Rollback of Inventory and complete pending future with failure
+            CompletableFuture<OrchestratorResponseDTO> pending = pendingSagas.remove(sagaEvent.getSagaId());
+            if (pending != null) {
+                OrchestratorResponseDTO resp = new OrchestratorResponseDTO();
+                resp.setSagaId(sagaEvent.getSagaId());
+                resp.setBaseMessage(MessageUtility.getBaseMessage(Status.FAILED, "Inventory update failed"));
+                pending.complete(resp);
+            }
+
+            // trigger compensation/rollback across services
+            initiateCompensation(sagaEvent.getSagaId(), saga.getOrderId(), "Inventory update failed");
+
+            throw new ServiceException(HttpStatus.INTERNAL_SERVER_ERROR, "Inventory update failed");
+        }
+    }
+
+    private void handleOrderCompletion(OrderCompletedEvent sagaEvent) {
+        Saga saga = orchestratorRepository.findSagaBySagaId(sagaEvent.getSagaId())
+                .orElseThrow(() -> new RuntimeException("Saga not found for sagaId: " + sagaEvent.getSagaId()));
+        saga.setStatus(SagaStatus.INVENTORY_RESERVATION_COMPLETED);
+        orchestratorRepository.save(saga);
+
+        if(sagaEvent.getStatus().equals(Status.SUCCESS)) {
+            PaymentInitiatedEvent paymentInitiatedEvent = PaymentInitiatedEvent.builder()
+                    .sagaId(sagaEvent.getSagaId())
+                    .orderId(sagaEvent.getOrderId())
+                    .total(sagaEvent.getTotal())
+                    .paymentType(sagaEvent.getPaymentType())
+                    .build();
+
+            kafkaProducerService.sendMessage(orderEvents, "orchestrator-service", paymentInitiatedEvent);
+            saga.setStatus(SagaStatus.PAYMENT_INITIATED);
+            orchestratorRepository.save(saga);
+        } else {
+            // Initiated Rollback of Order and Inventory and complete pending future with failure
+            CompletableFuture<OrchestratorResponseDTO> pending = pendingSagas.remove(sagaEvent.getSagaId());
+            if (pending != null) {
+                OrchestratorResponseDTO resp = new OrchestratorResponseDTO();
+                resp.setSagaId(sagaEvent.getSagaId());
+                resp.setBaseMessage(MessageUtility.getBaseMessage(Status.FAILED, "Order completion failed"));
+                pending.complete(resp);
+            }
+
+            // trigger compensation/rollback across services
+            initiateCompensation(sagaEvent.getSagaId(), saga.getOrderId(), "Order completion failed");
+
+            throw new ServiceException(HttpStatus.INTERNAL_SERVER_ERROR, "Order completion failed");
+        }
+    }
+
+    private void handlePaymentCompletion(PaymentCompletedEvent sagaEvent) {
+        Saga saga = orchestratorRepository.findSagaBySagaId(sagaEvent.getSagaId())
+                .orElseThrow(() -> new RuntimeException("Saga not found for sagaId: " + sagaEvent.getSagaId()));
+        saga.setStatus(SagaStatus.ORDER_COMPLETED);
+        orchestratorRepository.save(saga);
+
+        if(sagaEvent.getStatus().equals(Status.SUCCESS)) {
+            log.info("Saga completed successfully for sagaId: {}", sagaEvent.getSagaId());
+            CompletableFuture<OrchestratorResponseDTO> pending = pendingSagas.remove(sagaEvent.getSagaId());
+            if (pending != null) {
+                OrchestratorResponseDTO resp = new OrchestratorResponseDTO();
+                resp.setSagaId(sagaEvent.getSagaId());
+                resp.setBaseMessage(MessageUtility.getBaseMessage(Status.SUCCESS, "Saga completed successfully"));
+                pending.complete(resp);
+            }
+        } else {
+            // Initiated Rollback of Payment, Order and Inventory and complete pending future with failure
+            CompletableFuture<OrchestratorResponseDTO> pending = pendingSagas.remove(sagaEvent.getSagaId());
+            if (pending != null) {
+                OrchestratorResponseDTO resp = new OrchestratorResponseDTO();
+                resp.setSagaId(sagaEvent.getSagaId());
+                resp.setBaseMessage(MessageUtility.getBaseMessage(Status.FAILED, "Payment completion failed"));
+                pending.complete(resp);
+            }
+
+            // trigger compensation/rollback across services
+            initiateCompensation(sagaEvent.getSagaId(), saga.getOrderId(), "Payment completion failed");
+
+            throw new ServiceException(HttpStatus.INTERNAL_SERVER_ERROR, "Payment completion failed");
+        }
     }
 
     @Transactional
-    public OrchestratorResponseDTO reverseOrder(String orderId) {
+    @KafkaListener(topics = "${spring.kafka.template.compensation-process-topic}", groupId = "orchestrator-group")
+    public OrchestratorResponseDTO compensationOrder(SagaEvent event) {
+        log.info("Received event {}", event);
         OrchestratorResponseDTO orchestratorResponseDTO = new OrchestratorResponseDTO();
+
+        Saga saga = orchestratorRepository.findSagaBySagaId(event.getSagaId())
+                .orElseThrow(() -> new RuntimeException("Saga not found for sagaId: " + event.getSagaId()));
         try {
             //Release Inventory
             //Reverse Order
@@ -259,22 +381,55 @@ public class OrchestratorService {
         return orchestratorResponseDTO;
     }
 
-    /**
-     * Kafka listener to receive saga status updates from the saga-topic
-     */
-    @KafkaListener(topics = "${spring.kafka.template.saga-topic}", groupId = "orchestrator-group")
-    public void handleSagaEvent(Saga sagaEvent) {
-        log.info("Received saga event: {}", sagaEvent);
-
-        Long sagaId = sagaEvent.getSagaId();
-        // Store the saga response
-        sagaResponses.put(sagaId, sagaEvent);
-
-        // Signal that we've received a response for this saga
-        CountDownLatch latch = sagaLatches.get(sagaId);
-        if (latch != null) {
-            latch.countDown();
-            log.info("Saga event received for sagaId: {}", sagaId);
+    public OrchestratorResponseDTO getSagaStatus(Long sagaId) {
+        OrchestratorResponseDTO orchestratorResponseDTO = new OrchestratorResponseDTO();
+        Saga saga = orchestratorRepository.findSagaBySagaId(sagaId)
+                .orElse(null);
+        if (saga == null) {
+            orchestratorResponseDTO.setBaseMessage(MessageUtility.getBaseMessage(Status.FAILED, "Saga not found"));
+            return orchestratorResponseDTO;
         }
+        orchestratorResponseDTO.setSagaId(saga.getSagaId());
+        orchestratorResponseDTO.setBaseMessage(MessageUtility.getBaseMessage(Status.SUCCESS, "Saga status: " + saga.getStatus()));
+        return orchestratorResponseDTO;
+    }
+
+    /**
+     * Persist failure and publish compensation events for rollback across services
+     */
+    private void initiateCompensation(Long sagaId, String orderId, String reason) {
+        // mark saga failed
+        Saga s = orchestratorRepository.findSagaBySagaId(sagaId).orElse(null);
+        if (s != null) {
+            s.setStatus(SagaStatus.SAGA_FAILED);
+            orchestratorRepository.save(s);
+        }
+
+        // publish compensation events
+        OrderCancelledEvent orderCancel = new OrderCancelledEvent();
+        orderCancel.setSagaId(sagaId);
+        orderCancel.setOrderId(orderId);
+        orderCancel.setCreatedAt(LocalDateTime.now());
+        kafkaProducerService.sendMessage(compensationEvents, "orchestrator-service", orderCancel);
+
+        PaymentCancelledEvent paymentCancel = new PaymentCancelledEvent();
+        paymentCancel.setSagaId(sagaId);
+        paymentCancel.setOrderId(orderId);
+        paymentCancel.setCreatedAt(LocalDateTime.now());
+        kafkaProducerService.sendMessage(compensationEvents, "orchestrator-service", paymentCancel);
+
+        InventoryFailedEvent inventoryFail = new InventoryFailedEvent();
+        inventoryFail.setSagaId(sagaId);
+        inventoryFail.setOrderId(orderId);
+        inventoryFail.setCreatedAt(LocalDateTime.now());
+        inventoryFail.setInventoryStatus(Status.FAILED);
+        kafkaProducerService.sendMessage(compensationEvents, "orchestrator-service", inventoryFail);
+
+        log.info("Compensation initiated for sagaId:{} reason:{}", sagaId, reason);
+    }
+
+    public OrchestratorResponseDTO reverseOrder(String orderId) {
+        // Implementation for reversing an order
+        return new OrchestratorResponseDTO();
     }
 }

@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class Item implements Cloneable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long itemId;
+    private Long id;
     private String name;
     private Integer quantity;
     @Transient
@@ -33,5 +33,15 @@ public class Item implements Cloneable {
         } catch (CloneNotSupportedException e) {
             throw new AssertionError();
         }
+    }
+
+    @PrePersist
+    public void prePersist() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }

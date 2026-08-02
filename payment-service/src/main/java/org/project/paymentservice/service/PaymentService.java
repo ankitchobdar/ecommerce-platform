@@ -26,7 +26,7 @@ public class PaymentService {
         Payment payment = null;
         try {
             payment = Payment.builder()
-                .sagaId(paymentRequestDTO.getSagaId())
+                .orderId(paymentRequestDTO.getOrderId())
                 .paymentStatus(Status.COMPLETED)
                 .amount(paymentRequestDTO.getTotal())
                 .createdAt(LocalDateTime.now())
@@ -46,7 +46,7 @@ public class PaymentService {
         return new PaymentResponseDTO(
             MessageUtility.getBaseMessage(Status.SUCCESS, "Payment processed successfully"),
                 paymentRequestDTO.getSagaId(),
-                payment.getPaymentId(),
+                payment.getId(),
                 Status.SUCCESS
         );
     }

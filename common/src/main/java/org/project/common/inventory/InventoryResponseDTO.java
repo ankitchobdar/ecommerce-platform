@@ -15,5 +15,5 @@ public class InventoryResponseDTO {
     private BaseMessage baseMessage;
     private List<Item> items;
     private List<Item> outOfStockItems;
-    private Status inventoryStatus;
+    private Status status;
 }

@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/orchestrator")
+@RequestMapping("/api/v1/orchestrator")
 public class OrchestratorController {
 
     @Autowired
@@ -23,6 +23,11 @@ public class OrchestratorController {
     @PostMapping("/processOrder")
     public OrchestratorResponseDTO processOrder(@RequestBody OrchestratorRequestDTO requestDTO) {
         return orchestratorService.processOrder(requestDTO);
+    }
+
+    @GetMapping("/status/{sagaId}")
+    public OrchestratorResponseDTO getSagaStatus(@PathVariable Long sagaId) {
+        return orchestratorService.getSagaStatus(sagaId);
     }
 
     @GetMapping("/reverseOrder")

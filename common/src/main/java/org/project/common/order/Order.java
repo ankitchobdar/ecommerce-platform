@@ -23,7 +23,8 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "orders_seq")
     @SequenceGenerator(name = "orders_seq", sequenceName = "orders_id_seq", allocationSize = 1)
-    private Long orderId;
+    private Long id;
+    private String orderId;
     private Long sagaId;
     @OneToMany(cascade = CascadeType.MERGE, fetch = FetchType.EAGER)
     private List<Item> items;

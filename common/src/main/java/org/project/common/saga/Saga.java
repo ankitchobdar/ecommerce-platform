@@ -22,9 +22,17 @@ public class Saga {
     private Long sagaId;
     @Enumerated(value = EnumType.STRING)
     private SagaStatus status;
-    private Long orderId;
-    private Long paymentId;
-    private Long reservationId;
+    private String orderId;
     private LocalDateTime createdAt;
-    private LocalDateTime completedAt;
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

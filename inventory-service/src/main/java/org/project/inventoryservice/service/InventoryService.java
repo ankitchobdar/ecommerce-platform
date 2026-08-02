@@ -2,14 +2,15 @@ package org.project.inventoryservice.service;
 
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.project.common.inventory.InventoryRequestDTO;
-import org.project.common.inventory.InventoryResponseDTO;
-import org.project.common.inventory.Item;
+import org.project.common.events.InventoryReservedEvent;
+import org.project.common.events.InventoryUpdatedEvent;
+import org.project.common.inventory.*;
 import org.project.common.Status;
-import org.project.common.inventory.InventoryDTO;
 import org.project.common.utility.MessageUtility;
 import org.project.inventoryservice.repository.InventoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,15 +25,38 @@ public class InventoryService {
     @Autowired
     private InventoryRepository inventoryRepository;
 
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
+
+    @Value("${spring.kafka.template.order-reply-topic}")
+    private String orderReplyTopic;
+
     @Transactional
     public InventoryDTO addInventory(List<Item> items) {
         log.info("Adding inventory for items: {}", items);
+        items.forEach(item -> {item.setCreatedAt(LocalDateTime.now());});
         inventoryRepository.saveAll(items);
         return new InventoryDTO(
                 MessageUtility.getBaseMessage(Status.SUCCESS, "Inventory added successfully"), items);
     }
 
-    //NEW APPROACH
+    @Transactional
+    @KafkaListener(topics = "${spring.kafka.template.inventory-process-topic}", groupId = "inventory-service-group")
+    public void reserveInventory(InventoryReservedEvent event) {
+        log.info("[KAFKA] Reserving inventory {}", event);
+        InventoryRequestDTO inventoryRequestDTO = new InventoryRequestDTO(event.getSagaId(), event.getItems());
+        // Convert event to inventory request DTO
+        InventoryResponseDTO inventoryResponseDTO = reserveInventory(inventoryRequestDTO);
+        kafkaProducerService.sendMessage(orderReplyTopic, "inventory-service", InventoryUpdatedEvent.builder()
+                .sagaId(event.getSagaId())
+                .orderId(event.getOrderId())
+                .items(inventoryRequestDTO.getItems())
+                .outOfStockItems(inventoryResponseDTO.getOutOfStockItems())
+                .status(inventoryResponseDTO.getStatus())
+                .build()
+        );
+    }
+
     @Transactional
     public InventoryResponseDTO reserveInventory(InventoryRequestDTO inventoryRequestDTO) {
         log.info("Reserving inventory {}", inventoryRequestDTO);
@@ -40,20 +64,23 @@ public class InventoryService {
         String reservationId = UUID.randomUUID().toString();
         // Implementation for reserving inventory
         for (Item item : inventoryRequestDTO.getItems()) {
-            Item itemFromDB = inventoryRepository.getItemByItemId(item.getItemId());
-            if (itemFromDB != null) {
-                if(itemFromDB.getQuantity() < item.getQuantity()) {
-                    outOfStockItems.add(item);
-                } else {
-                    item.setItemId(itemFromDB.getItemId());
-                    item.setReservedQuantity(item.getQuantity());
-                    item.setQuantity(itemFromDB.getQuantity() - item.getReservedQuantity());
-                    item.setReservationId(reservationId);
-                    item.setUpdatedAt(LocalDateTime.now());
-                }
+            Item itemFromDB = inventoryRepository.getItemById(item.getId());
+            if (itemFromDB == null) {
+                outOfStockItems.add(item);
+            } else if (itemFromDB.getQuantity() < item.getQuantity()) {
+                outOfStockItems.add(item);
+            } else {
+                item.setId(itemFromDB.getId());
+                item.setReservedQuantity(item.getQuantity());
+                item.setQuantity(itemFromDB.getQuantity() - item.getReservedQuantity());
+                item.setReservationId(reservationId);
+                item.setCreatedAt(itemFromDB.getCreatedAt());
             }
         }
-        inventoryRepository.saveAll(inventoryRequestDTO.getItems());
+        List<Item> successfulReservations = inventoryRequestDTO.getItems().stream()
+            .filter(item -> !outOfStockItems.contains(item))
+            .toList();
+        inventoryRepository.saveAll(successfulReservations);
 
         inventoryRequestDTO.getItems().forEach(item -> {
             item.setQuantity(item.getReservedQuantity());

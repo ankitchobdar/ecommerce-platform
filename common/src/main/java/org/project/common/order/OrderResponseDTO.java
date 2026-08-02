@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 public class OrderResponseDTO {
     private BaseMessage baseMessage;
     private Long sagaId;
-    private Long orderId;
+    private String orderId;
     private Status orderStatus;
     private BigDecimal total;
 }
